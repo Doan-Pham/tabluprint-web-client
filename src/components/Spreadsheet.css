@@ -1,0 +1,15 @@
+.spreadsheet {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.spreadsheet th,
+.spreadsheet td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+.spreadsheet th {
+    background-color: #f2f2f2;
+    text-align: left;
+}
