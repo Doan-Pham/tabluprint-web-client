@@ -31,20 +31,13 @@ const Spreadsheet = () => {
 
   const updateUI = useCallback(
     (updatedClients) => {
-      // Clone the existing data
       const newData = data.map((row) =>
         row.map((cell) => ({ ...cell, color: null, bold: false }))
       );
-
-      // Apply colors and bold text to the cells based on the positions of the clients
       updatedClients.forEach((client) => {
-        if (client.Position === "") return;
+        if (!client.Position || client.Position === "") return;
         const [rowIndex, colIndex] = client.Position.split(",").map(Number);
         if (rowIndex < newData.length && colIndex < newData[0].length) {
-          console.log(
-            `update: ${rowIndex}, ${colIndex}, ${client.color}, ${newData[rowIndex][colIndex]}`
-          );
-
           newData[rowIndex][colIndex] = {
             ...newData[rowIndex][colIndex],
             color: client.color,
@@ -52,30 +45,51 @@ const Spreadsheet = () => {
           };
         }
       });
-
       setData(newData);
     },
     [data]
   );
 
-  const handleWebSocketData = useCallback(
-    (sessionClients) => {
-      // Remove the client's own clientId and sort the remaining clients
+  const handleEditUpdate = useCallback((editData) => {
+    const { position, value } = editData;
+    const [rowIndex, colIndex] = position.split(",").map(Number);
+    setData((prevData) => {
+      const newData = [...prevData];
+      newData[rowIndex][colIndex] = { ...newData[rowIndex][colIndex], value };
+      return newData;
+    });
+  }, []);
 
-      const clientsArray = Object.values(sessionClients)
-        .filter((client) => client.ClientId !== clientId)
-        .sort((a, b) => (a.ClientId > b.ClientId ? 1 : -1));
+  const handleSelectionUpdate = useCallback(
+    (clientsArray) => {
+      clientsArray = clientsArray
+        .filter((client) => client.ID !== clientId)
+        .sort((a, b) => (a.ID > b.ID ? 1 : -1));
 
-      // Map each client to a color
       const updatedClients = clientsArray.map((client, index) => ({
         ...client,
         color: colors[index % colors.length],
       }));
 
-      // Update the UI
       updateUI(updatedClients);
     },
     [clientId, updateUI]
+  );
+
+  const handleWebSocketData = useCallback(
+    (message) => {
+      const data = JSON.parse(message.data); // Assuming message.data is the raw JSON string received
+
+      if (data.clientId && data.position) {
+        // This is an edit update
+        handleEditUpdate(data);
+      } else {
+        // This is a selection update
+        const clientsArray = Object.values(data).filter((client) => client.ID);
+        handleSelectionUpdate(clientsArray);
+      }
+    },
+    [handleEditUpdate, handleSelectionUpdate]
   );
 
   useEffect(() => {
@@ -91,8 +105,8 @@ const Spreadsheet = () => {
           wsRef.current = ws;
 
           ws.onmessage = (event) => {
-            const sessionClients = JSON.parse(event.data);
-            handleWebSocketData(sessionClients);
+            console.log("Received data:", event.data);
+            handleWebSocketData(event);
           };
 
           ws.onclose = () => {
@@ -118,8 +132,15 @@ const Spreadsheet = () => {
 
   const handleCellChange = (rowIndex, colIndex, value) => {
     const newData = [...data];
-    newData[rowIndex][colIndex] = value;
+    const position = `${rowIndex},${colIndex}`;
+    newData[rowIndex][colIndex] = { ...newData[rowIndex][colIndex], value };
     setData(newData);
+
+    // Send the updated cell data to the server for broadcasting
+    if (wsRef.current && clientId) {
+      const editData = { clientId, position, value };
+      wsRef.current.send(JSON.stringify(editData));
+    }
   };
 
   return (
