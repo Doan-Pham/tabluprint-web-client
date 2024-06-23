@@ -35,34 +35,48 @@ const Spreadsheet = () => {
     console.log("press" + e.keyCode);
     if (e.key === "Enter" || e.keyCode === 13) {
       e.preventDefault(); // Prevent default Enter key action
+      setData((prevData) => {
+        const newData = [...prevData];
+        newData[rowIndex][colIndex] = {
+          ...newData[rowIndex][colIndex],
+          value: newData[rowIndex][colIndex].tempValue,
+          tempValue: newData[rowIndex][colIndex].tempValue,
+        };
+        return newData;
+      });
+
       const value = data[rowIndex][colIndex].tempValue;
-      data[rowIndex][colIndex].value = value; // Update the actual value
       const position = `${rowIndex},${colIndex}`;
       const editData = { clientId, position, value };
       wsRef.current.send(JSON.stringify(editData));
     }
   };
 
-  const updateUI = useCallback(
-    (updatedClients) => {
-      const newData = data.map((row) =>
-        row.map((cell) => ({ ...cell, color: null, bold: false }))
+  const updateUI = useCallback((updatedClients) => {
+    setData((prevData) => {
+      const newData = prevData.map((row) =>
+        row.map((cell) => ({
+          ...cell,
+          color: null,
+          bold: false,
+        }))
       );
+
       updatedClients.forEach((client) => {
         if (!client.Position || client.Position === "") return;
         const [rowIndex, colIndex] = client.Position.split(",").map(Number);
         if (rowIndex < newData.length && colIndex < newData[0].length) {
           newData[rowIndex][colIndex] = {
             ...newData[rowIndex][colIndex],
-            color: client.color,
-            bold: true,
+            color: client.color, // Apply new color
+            bold: true, // Set bold
           };
         }
       });
-      setData(newData);
-    },
-    [data]
-  );
+
+      return newData;
+    });
+  }, []);
 
   const handleEditUpdate = useCallback((editData) => {
     const { position, value } = editData;
@@ -72,7 +86,7 @@ const Spreadsheet = () => {
       newData[rowIndex][colIndex] = {
         ...newData[rowIndex][colIndex],
         value: value,
-        tempValue: value, // Optionally sync tempValue to prevent edit conflicts or confusion
+        tempValue: value,
       };
       return newData;
     });
@@ -96,14 +110,16 @@ const Spreadsheet = () => {
 
   const handleWebSocketData = useCallback(
     (message) => {
-      const data = JSON.parse(message.data); // Assuming message.data is the raw JSON string received
+      const response = JSON.parse(message.data); // Assuming message.data is the raw JSON string received
 
-      if (data.clientId && data.position) {
+      if (response.clientId && response.position) {
         // This is an edit update
-        handleEditUpdate(data);
+        handleEditUpdate(response);
       } else {
         // This is a selection update
-        const clientsArray = Object.values(data).filter((client) => client.ID);
+        const clientsArray = Object.values(response).filter(
+          (client) => client.ID
+        );
         handleSelectionUpdate(clientsArray);
       }
     },
@@ -144,6 +160,15 @@ const Spreadsheet = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId, position }),
+      });
+
+      setData((prevData) => {
+        const newData = [...prevData];
+        newData[rowIndex][colIndex] = {
+          ...newData[rowIndex][colIndex],
+          tempValue: newData[rowIndex][colIndex].value, // Set tempValue to the last committed value
+        };
+        return newData;
       });
     }
   };
