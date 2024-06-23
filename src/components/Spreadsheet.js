@@ -224,7 +224,11 @@ const Spreadsheet = () => {
                 }}
               >
                 <input
-                  value={cell.displayValue || cell.value || cell.tempValue}
+                  value={
+                    cell.displayValue ||
+                    parseFormula(cell.value, data) ||
+                    cell.tempValue
+                  }
                   onFocus={() => handleCellFocus(rowIndex, colIndex)}
                   onChange={(e) =>
                     handleCellChange(rowIndex, colIndex, e.target.value)
