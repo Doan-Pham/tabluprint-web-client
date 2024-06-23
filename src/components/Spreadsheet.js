@@ -21,13 +21,27 @@ const Spreadsheet = () => {
   const numRows = 20; // Fixed number of rows
   const numCols = 20; // Fixed number of columns
 
-  // Initialize data with empty strings for the fixed number of rows and columns
   const [data, setData] = useState(
-    Array.from({ length: numRows }, () => Array(numCols).fill(""))
+    Array.from({ length: numRows }, () =>
+      Array(numCols).fill({ value: "", tempValue: "" })
+    )
   );
+
   const [clientId, setClientId] = useState(null);
   const wsRef = useRef(null);
   const hasInitialized = useRef(false); // Ref to track initialization
+
+  const handleKeyPress = (rowIndex, colIndex, e) => {
+    console.log("press" + e.keyCode);
+    if (e.key === "Enter" || e.keyCode === 13) {
+      e.preventDefault(); // Prevent default Enter key action
+      const value = data[rowIndex][colIndex].tempValue;
+      data[rowIndex][colIndex].value = value; // Update the actual value
+      const position = `${rowIndex},${colIndex}`;
+      const editData = { clientId, position, value };
+      wsRef.current.send(JSON.stringify(editData));
+    }
+  };
 
   const updateUI = useCallback(
     (updatedClients) => {
@@ -55,7 +69,11 @@ const Spreadsheet = () => {
     const [rowIndex, colIndex] = position.split(",").map(Number);
     setData((prevData) => {
       const newData = [...prevData];
-      newData[rowIndex][colIndex] = { ...newData[rowIndex][colIndex], value };
+      newData[rowIndex][colIndex] = {
+        ...newData[rowIndex][colIndex],
+        value: value,
+        tempValue: value, // Optionally sync tempValue to prevent edit conflicts or confusion
+      };
       return newData;
     });
   }, []);
@@ -132,15 +150,8 @@ const Spreadsheet = () => {
 
   const handleCellChange = (rowIndex, colIndex, value) => {
     const newData = [...data];
-    const position = `${rowIndex},${colIndex}`;
-    newData[rowIndex][colIndex] = { ...newData[rowIndex][colIndex], value };
+    newData[rowIndex][colIndex].tempValue = value;
     setData(newData);
-
-    // Send the updated cell data to the server for broadcasting
-    if (wsRef.current && clientId) {
-      const editData = { clientId, position, value };
-      wsRef.current.send(JSON.stringify(editData));
-    }
   };
 
   return (
@@ -159,11 +170,12 @@ const Spreadsheet = () => {
                 }}
               >
                 <input
-                  value={cell.value}
+                  value={cell.tempValue || cell.value}
                   onFocus={() => handleCellFocus(rowIndex, colIndex)}
                   onChange={(e) =>
                     handleCellChange(rowIndex, colIndex, e.target.value)
                   }
+                  onKeyDown={(e) => handleKeyPress(rowIndex, colIndex, e)}
                 />
               </td>
             ))}
