@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import "./Spreadsheet.css";
 
+const fileManagementServiceHttpUrl = "http://localhost:3005";
 const realTimeServiceHttpUrl = "http://localhost:4949";
 const realTimeServiceWsUrl = "ws://localhost:4949";
 
@@ -199,6 +200,36 @@ const Spreadsheet = () => {
     setData(newData);
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      const response = await fetch(`${fileManagementServiceHttpUrl}/export`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+        body: JSON.stringify({
+          data: data.map((row) => row.map((cell) => cell.value)),
+        }), // Send only values for Excel
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = "exported_spreadsheet.xlsx";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } else {
+        console.error("Failed to export the spreadsheet");
+      }
+    } catch (error) {
+      console.error("Error exporting spreadsheet:", error);
+    }
+  };
   return (
     <table className="spreadsheet">
       <thead>
