@@ -202,6 +202,11 @@ const Spreadsheet = () => {
 
   const handleExportToExcel = async () => {
     try {
+      const dataToSend = data.map((row) => row.map((cell) => cell.tempValue));
+      const requestBody = JSON.stringify({
+        data: dataToSend,
+      });
+      console.log("[WC] - /export excel - requestBody: " + requestBody);
       const response = await fetch(`${fileManagementServiceHttpUrl}/export`, {
         method: "POST",
         headers: {
@@ -209,9 +214,7 @@ const Spreadsheet = () => {
           Accept:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         },
-        body: JSON.stringify({
-          data: data.map((row) => row.map((cell) => cell.value)),
-        }), // Send only values for Excel
+        body: requestBody, // Send only values for Excel
       });
 
       if (response.ok) {
@@ -230,48 +233,55 @@ const Spreadsheet = () => {
       console.error("Error exporting spreadsheet:", error);
     }
   };
+
   return (
-    <table className="spreadsheet">
-      <thead>
-        <tr>
-          <th></th> {/* Empty top-left corner cell */}
-          {Array.from({ length: numCols }, (_, index) => (
-            <th key={index}>{getColumnLabel(index)}</th> // Column headers A-Z
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((row, rowIndex) => (
-          <tr key={rowIndex}>
-            <th>{rowIndex + 1}</th> {/* Row headers 1-indexed */}
-            {row.map((cell, colIndex) => (
-              <td
-                key={colIndex}
-                style={{
-                  border: cell.color
-                    ? `2px solid ${cell.color}`
-                    : "1px solid #ddd",
-                  fontWeight: cell.bold ? "bold" : "normal",
-                }}
-              >
-                <input
-                  value={
-                    cell.displayValue ||
-                    parseFormula(cell.value, data) ||
-                    cell.tempValue
-                  }
-                  onFocus={() => handleCellFocus(rowIndex, colIndex)}
-                  onChange={(e) =>
-                    handleCellChange(rowIndex, colIndex, e.target.value)
-                  }
-                  onKeyDown={(e) => handleKeyPress(rowIndex, colIndex, e)}
-                />
-              </td>
+    <div className="spreadsheet-container">
+      <button onClick={handleExportToExcel} className="export-button">
+        Export to Excel
+      </button>
+
+      <table className="spreadsheet">
+        <thead>
+          <tr>
+            <th></th> {/* Empty top-left corner cell */}
+            {Array.from({ length: numCols }, (_, index) => (
+              <th key={index}>{getColumnLabel(index)}</th> // Column headers A-Z
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {data.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              <th>{rowIndex + 1}</th> {/* Row headers 1-indexed */}
+              {row.map((cell, colIndex) => (
+                <td
+                  key={colIndex}
+                  style={{
+                    border: cell.color
+                      ? `2px solid ${cell.color}`
+                      : "1px solid #ddd",
+                    fontWeight: cell.bold ? "bold" : "normal",
+                  }}
+                >
+                  <input
+                    value={
+                      cell.displayValue ||
+                      parseFormula(cell.value, data) ||
+                      cell.tempValue
+                    }
+                    onFocus={() => handleCellFocus(rowIndex, colIndex)}
+                    onChange={(e) =>
+                      handleCellChange(rowIndex, colIndex, e.target.value)
+                    }
+                    onKeyDown={(e) => handleKeyPress(rowIndex, colIndex, e)}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 };
 
