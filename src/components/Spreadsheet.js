@@ -17,6 +17,25 @@ const getRandomColor = () => {
 // Define colors as a global constant
 const colors = Array.from({ length: 10 }, () => getRandomColor());
 
+const getColumnLabel = (index) =>
+  String.fromCharCode("A".charCodeAt(0) + index);
+
+const parseFormula = (input, data) => {
+  if (!input.startsWith("=")) return input; // Return input directly if it's not a formula
+  const match = input.match(/=([A-Z]+)(\d+)\s*\+\s*([A-Z]+)(\d+)/);
+  if (match) {
+    const [, col1, row1, col2, row2] = match;
+    const value1 =
+      data[parseInt(row1, 10) - 1][col1.charCodeAt(0) - "A".charCodeAt(0)]
+        .tempValue;
+    const value2 =
+      data[parseInt(row2, 10) - 1][col2.charCodeAt(0) - "A".charCodeAt(0)]
+        .tempValue;
+    return (parseFloat(value1) || 0) + (parseFloat(value2) || 0);
+  }
+  return "Invalid formula"; // Return error message or handle more cases
+};
+
 const Spreadsheet = () => {
   const numRows = 20; // Fixed number of rows
   const numCols = 20; // Fixed number of columns
@@ -41,6 +60,7 @@ const Spreadsheet = () => {
           ...newData[rowIndex][colIndex],
           value: newData[rowIndex][colIndex].tempValue,
           tempValue: newData[rowIndex][colIndex].tempValue,
+          displayValue: parseFormula(value, newData), // Parse formula
         };
         return newData;
       });
@@ -181,9 +201,18 @@ const Spreadsheet = () => {
 
   return (
     <table className="spreadsheet">
+      <thead>
+        <tr>
+          <th></th> {/* Empty top-left corner cell */}
+          {Array.from({ length: numCols }, (_, index) => (
+            <th key={index}>{getColumnLabel(index)}</th> // Column headers A-Z
+          ))}
+        </tr>
+      </thead>
       <tbody>
         {data.map((row, rowIndex) => (
           <tr key={rowIndex}>
+            <th>{rowIndex + 1}</th> {/* Row headers 1-indexed */}
             {row.map((cell, colIndex) => (
               <td
                 key={colIndex}
@@ -195,7 +224,7 @@ const Spreadsheet = () => {
                 }}
               >
                 <input
-                  value={cell.tempValue || cell.value}
+                  value={cell.displayValue || cell.value || cell.tempValue}
                   onFocus={() => handleCellFocus(rowIndex, colIndex)}
                   onChange={(e) =>
                     handleCellChange(rowIndex, colIndex, e.target.value)
